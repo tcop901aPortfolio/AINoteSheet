@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    />
+
+    <title>Note Sheet</title>
+
+    <link
+        rel="stylesheet"
+        href="notepad.css"
+    />
+</head>
+
+<body>
+
+    <div id="topbar">
+        <div
+            id="titleInput"
+            class="center"
+            contenteditable="true"
+            spellcheck="false"
+            autocorrect="off"
+            autocomplete="off"
+        >
+            Title
+        </div>
+    </div>
+
+    <div
+        id="editor"
+        contenteditable="true"
+        spellcheck="true"
+        autocorrect="off"
+        autocomplete="off"
+    ></div>
+
+    <div id="preview"></div>
+
+    <div id="statusbar">
+        <span>
+            <span
+                class="status-dot"
+                id="statusdot"
+            ></span>
+
+            <button
+                id="saveButton"
+                class="statusBarButton"
+            >
+                Save
+            </button>
+
+            <button
+                id="loadButton"
+                class="statusBarButton"
+            >
+                Load
+            </button>
+        </span>
+
+        <span id="wordcount">
+            0 words
+        </span>
+    </div>
+
+    <!-- Floating tooltip -->
+    <div id="tooltip"></div>
+
+    <!-- Main JS entry point -->
+    <script
+        type="module"
+        src="main.js"
+    ></script>
+
+</body>
+</html>
