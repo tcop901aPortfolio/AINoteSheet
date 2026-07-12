@@ -66,9 +66,8 @@ html, body {
   font-size: 16px;
 
   background: transparent;
-  
-  color: transparent;        /* 👈 KEY FIX */
-  caret-color: black;        /* still see cursor */
+  color: black;
+  caret-color: black;
 
   border: none;
   outline: none;
@@ -80,26 +79,7 @@ html, body {
   z-index: 2;
 }
 
-#preview {
-  position: absolute;
-  left: 5px;
-  right: 5px;
-  top: 50px;
-  bottom: 0;
-
-  font-family: Arial, sans-serif;
-  font-size: 16px;
-
-  color: black;
-
-  overflow-y: auto;
-  white-space: pre-wrap;
-  line-height: 1.5;
-
-  z-index: 1;
-}
-
-#editor, #preview {
+#editor {
     white-space: pre-wrap;
     word-break: break-word;
 }
@@ -186,16 +166,6 @@ html, body {
 
 .statusBarButton:hover {
   background: #a89c9c;
-}
-
-.ref-term {
-    color: rgb(0, 255, 81);
-    font-weight: normal;
-}
-
-.def-term {
-    color: blue;
-    font-weight: normal;
 }
 
 #tooltip {
