@@ -1098,7 +1098,19 @@ saveButton.addEventListener(
     async () => {
         await saveTextFile(
             titleInput.innerText.trim(),
-            editor.textContent
+            {
+                text: currentText,
+                styleRuns: getSortedStyleRuns().map(
+                    (run) => ({
+                        index: run.index,
+                        style: cloneStyle(run.style)
+                    })
+                ),
+                currentTypingStyle:
+                    cloneStyle(
+                        currentTypingStyle
+                    )
+            }
         );
 
         setStatus(
@@ -1113,24 +1125,35 @@ loadButton.addEventListener(
         const file =
             await loadTextFile();
 
-        editor.textContent =
-            file.text;
-
         styleRuns =
-            [
-                {
-                    index: 0,
-                    style:
-                        {
-                            ...defaultTypingStyle
-                        }
-                }
-            ];
+            Array.isArray(
+                file.styleRuns
+            ) && file.styleRuns.length
+                ? file.styleRuns.map(
+                    (run) => ({
+                        index: run.index,
+                        style: cloneStyle(run.style)
+                    })
+                )
+                : [
+                    {
+                        index: 0,
+                        style:
+                            {
+                                ...defaultTypingStyle
+                            }
+                    }
+                ];
 
         currentTypingStyle =
-            {
-                ...defaultTypingStyle
-            };
+            file.currentTypingStyle &&
+            typeof file.currentTypingStyle === "object"
+                ? cloneStyle(
+                    file.currentTypingStyle
+                )
+                : {
+                    ...defaultTypingStyle
+                };
 
         titleInput.innerText =
             file.title;
@@ -1138,6 +1161,9 @@ loadButton.addEventListener(
         updateEditorState(
             file.text
         );
+
+        currentText =
+            file.text;
 
         updateToolbarState();
 

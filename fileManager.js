@@ -2,9 +2,63 @@ let folderHandle = null;
 let currentFileHandle = null;
 let currentFileName = null;
 
+function serializeDocument(
+    documentData
+) {
+    return JSON.stringify(
+        {
+            version: 1,
+            ...documentData
+        },
+        null,
+        2
+    );
+}
+
+function parseDocument(
+    text
+) {
+    try {
+        const parsed =
+            JSON.parse(
+                text
+            );
+
+        if (
+            parsed &&
+            typeof parsed === "object" &&
+            typeof parsed.text === "string"
+        ) {
+            return parsed;
+        }
+    } catch {
+        // fall through to plain-text handling
+    }
+
+    return {
+        version: 0,
+        text,
+        styleRuns: [
+            {
+                index: 0,
+                style: {
+                    bold: false,
+                    italic: false,
+                    color: "black"
+                }
+            }
+        ],
+        currentTypingStyle: {
+            bold: false,
+            italic: false,
+            color: "black"
+        }
+    };
+}
+
 export async function saveTextFile(
     title,
-    content
+    documentData
 ) {
 
     const newName =
@@ -23,7 +77,9 @@ export async function saveTextFile(
                 .createWritable();
 
         await writable.write(
-            content
+            serializeDocument(
+                documentData
+            )
         );
 
         await writable.close();
@@ -53,7 +109,9 @@ export async function saveTextFile(
             .createWritable();
 
     await writable.write(
-        content
+        serializeDocument(
+            documentData
+        )
     );
 
     await writable.close();
@@ -93,6 +151,11 @@ export async function loadTextFile() {
     const text =
         await file.text();
 
+    const documentData =
+        parseDocument(
+            text
+        );
+
     currentFileName =
         file.name.replace(
             ".txt",
@@ -100,7 +163,7 @@ export async function loadTextFile() {
         );
 
     return {
-        text,
+        ...documentData,
         title:
             currentFileName
     };
