@@ -38,6 +38,26 @@ const titleInput =
         "titleInput"
     );
 
+const colorSelect =
+    document.getElementById(
+        "colorSelect"
+    );
+
+const boldButton =
+    document.getElementById(
+        "boldButton"
+    );
+
+const italicButton =
+    document.getElementById(
+        "italicButton"
+    );
+
+const resetStyleButton =
+    document.getElementById(
+        "resetStyleButton"
+    );
+
 const tooltip =
     document.getElementById(
         "tooltip"
@@ -49,25 +69,6 @@ const defaultTypingStyle =
         italic: false,
         color: "black"
     };
-
-let styleRuns =
-    [
-        {
-            index: 0,
-            style:
-                {
-                    ...defaultTypingStyle
-                }
-        }
-    ];
-
-let currentTypingStyle =
-    {
-        ...defaultTypingStyle
-    };
-
-let isNormalizingInput =
-    false;
 
 const colorCommandMap =
     {
@@ -85,6 +86,31 @@ const colorCommandMap =
 const commandPattern =
     /\/\/(bold|normal|italics|reset|red|yellow|orange|green|blue|purple|black|brown|pink)(?=\s|$)/gi;
 
+let styleRuns =
+    [
+        {
+            index: 0,
+            style:
+                {
+                    ...defaultTypingStyle
+                }
+        }
+    ];
+
+let currentTypingStyle =
+    {
+        ...defaultTypingStyle
+    };
+
+let currentText =
+    "";
+
+let savedSelection =
+    null;
+
+let isNormalizingInput =
+    false;
+
 function cloneStyle(
     style
 ) {
@@ -95,11 +121,479 @@ function cloneStyle(
     };
 }
 
+function stylesEqual(
+    left,
+    right
+) {
+    return (
+        left.bold === right.bold &&
+        left.italic === right.italic &&
+        left.color === right.color
+    );
+}
+
+function sortStyleRuns() {
+    styleRuns.sort(
+        (left, right) =>
+            left.index - right.index
+    );
+}
+
+function getSortedStyleRuns() {
+    return [...styleRuns].sort(
+        (left, right) =>
+            left.index - right.index
+    );
+}
+
+function normalizeStyleRuns() {
+    sortStyleRuns();
+
+    const normalized =
+        [];
+
+    for (let run of styleRuns) {
+        if (
+            normalized.length === 0 ||
+            !stylesEqual(
+                normalized[
+                    normalized.length - 1
+                ].style,
+                run.style
+            )
+        ) {
+            normalized.push(
+                {
+                    index: run.index,
+                    style:
+                        cloneStyle(
+                            run.style
+                        )
+                }
+            );
+        }
+    }
+
+    styleRuns =
+        normalized;
+}
+
+function getStyleAtIndex(
+    index
+) {
+    let style =
+        {
+            ...defaultTypingStyle
+        };
+
+    for (let run of getSortedStyleRuns()) {
+        if (run.index > index) {
+            break;
+        }
+
+        style =
+            run.style;
+    }
+
+    return cloneStyle(
+        style
+    );
+}
+
+function setTypingStyleAtIndex(
+    index,
+    style
+) {
+    const existingIndex =
+        styleRuns.findIndex(
+            (run) =>
+                run.index === index
+        );
+
+    if (existingIndex >= 0) {
+        styleRuns[
+            existingIndex
+        ].style =
+            cloneStyle(
+                style
+            );
+    } else {
+        styleRuns.push(
+            {
+                index,
+                style:
+                    cloneStyle(
+                        style
+                    )
+            }
+        );
+    }
+
+    sortStyleRuns();
+}
+
+function shiftStyleRunsAfterIndex(
+    index,
+    delta
+) {
+    styleRuns =
+        styleRuns.map(
+            (run) =>
+                run.index >= index
+                    ? {
+                        ...run,
+                        index:
+                            run.index + delta
+                    }
+                    : run
+        );
+
+    sortStyleRuns();
+}
+
+function deleteTextRange(
+    start,
+    end
+) {
+    const delta =
+        end - start;
+
+    styleRuns =
+        styleRuns
+            .filter(
+                (run) =>
+                    run.index < start ||
+                    run.index >= end
+            )
+            .map(
+                (run) =>
+                    run.index >= end
+                        ? {
+                            ...run,
+                            index:
+                                run.index - delta
+                        }
+                        : run
+            );
+
+    normalizeStyleRuns();
+}
+
+function insertTextRange(
+    start,
+    length,
+    style
+) {
+    const styleBeforeInsert =
+        getStyleAtIndex(
+            start
+        );
+
+    shiftStyleRunsAfterIndex(
+        start,
+        length
+    );
+
+    setTypingStyleAtIndex(
+        start,
+        style
+    );
+
+    if (
+        !stylesEqual(
+            styleBeforeInsert,
+            style
+        )
+    ) {
+        setTypingStyleAtIndex(
+            start + length,
+            styleBeforeInsert
+        );
+    }
+
+    normalizeStyleRuns();
+}
+
+function applyStyleToRange(
+    start,
+    end,
+    style
+) {
+    if (start >= end) {
+        return;
+    }
+
+    const endStyle =
+        getStyleAtIndex(
+            end
+        );
+
+    setTypingStyleAtIndex(
+        start,
+        style
+    );
+
+    setTypingStyleAtIndex(
+        end,
+        endStyle
+    );
+
+    styleRuns =
+        styleRuns.map(
+            (run) =>
+                run.index > start &&
+                run.index < end
+                    ? {
+                        ...run,
+                        style:
+                            cloneStyle(
+                                style
+                            )
+                    }
+                    : run
+        );
+
+    currentTypingStyle =
+        cloneStyle(
+            style
+        );
+
+    normalizeStyleRuns();
+}
+
+function getSelectionOffsets(
+    element
+) {
+    const selection =
+        window.getSelection();
+
+    if (
+        !selection ||
+        !selection.rangeCount
+    ) {
+        return null;
+    }
+
+    const range =
+        selection.getRangeAt(
+            0
+        );
+
+    if (
+        !element.contains(
+            range.commonAncestorContainer
+        )
+    ) {
+        return null;
+    }
+
+    const startRange =
+        range.cloneRange();
+    startRange.selectNodeContents(
+        element
+    );
+    startRange.setEnd(
+        range.startContainer,
+        range.startOffset
+    );
+
+    const endRange =
+        range.cloneRange();
+    endRange.selectNodeContents(
+        element
+    );
+    endRange.setEnd(
+        range.endContainer,
+        range.endOffset
+    );
+
+    return {
+        start:
+            startRange.toString().length,
+        end:
+            endRange.toString().length
+    };
+}
+
+function restoreSelectionOffsets(
+    element,
+    selectionOffsets
+) {
+    if (!selectionOffsets) {
+        return;
+    }
+
+    const selection =
+        window.getSelection();
+
+    if (!selection) {
+        return;
+    }
+
+    const positions =
+        [];
+
+    const walker =
+        document.createTreeWalker(
+            element,
+            NodeFilter.SHOW_TEXT
+        );
+
+    let currentNode =
+        walker.nextNode();
+    let runningOffset =
+        0;
+
+    while (currentNode) {
+        positions.push(
+            {
+                node:
+                    currentNode,
+                start:
+                    runningOffset,
+                end:
+                    runningOffset +
+                    currentNode.textContent.length
+            }
+        );
+
+        runningOffset +=
+            currentNode.textContent.length;
+        currentNode =
+            walker.nextNode();
+    }
+
+    function locate(
+        offset
+    ) {
+        if (positions.length === 0) {
+            return null;
+        }
+
+        for (let position of positions) {
+            if (
+                offset >= position.start &&
+                offset <= position.end
+            ) {
+                return {
+                    node:
+                        position.node,
+                    offset:
+                        Math.min(
+                            offset -
+                                position.start,
+                            position.node.textContent.length
+                        )
+                };
+            }
+        }
+
+        const last =
+            positions[
+                positions.length - 1
+            ];
+
+        return {
+            node:
+                last.node,
+            offset:
+                last.node.textContent.length
+        };
+    }
+
+    const startPos =
+        locate(
+            selectionOffsets.start
+        );
+    const endPos =
+        locate(
+            selectionOffsets.end
+        );
+
+    if (
+        !startPos ||
+        !endPos
+    ) {
+        return;
+    }
+
+    const range =
+        document.createRange();
+    range.setStart(
+        startPos.node,
+        startPos.offset
+    );
+    range.setEnd(
+        endPos.node,
+        endPos.offset
+    );
+
+    selection.removeAllRanges();
+    selection.addRange(
+        range
+    );
+}
+
+function setCaretToOffset(
+    element,
+    offset
+) {
+    restoreSelectionOffsets(
+        element,
+        {
+            start: offset,
+            end: offset
+        }
+    );
+}
+
+function getTextDiff(
+    oldText,
+    newText
+) {
+    let start = 0;
+
+    while (
+        start < oldText.length &&
+        start < newText.length &&
+        oldText[start] === newText[start]
+    ) {
+        start += 1;
+    }
+
+    let oldEnd =
+        oldText.length;
+    let newEnd =
+        newText.length;
+
+    while (
+        oldEnd > start &&
+        newEnd > start &&
+        oldText[oldEnd - 1] === newText[newEnd - 1]
+    ) {
+        oldEnd -= 1;
+        newEnd -= 1;
+    }
+
+    return {
+        start,
+        deletedText:
+            oldText.slice(
+                start,
+                oldEnd
+            ),
+        insertedText:
+            newText.slice(
+                start,
+                newEnd
+            )
+    };
+}
+
 function getCommandStyle(
     command,
     currentStyle
 ) {
-
     const nextStyle =
         cloneStyle(
             currentStyle
@@ -139,198 +633,11 @@ function getCommandStyle(
     }
 }
 
-function setTypingStyleAtIndex(
-    index,
-    style
-) {
-
-    styleRuns.push(
-        {
-            index,
-            style:
-                cloneStyle(
-                    style
-                )
-        }
-    );
-}
-
-function shiftStyleRunsAfterIndex(
-    index,
-    delta
-) {
-
-    styleRuns =
-        styleRuns.map(
-            (run) =>
-                run.index > index
-                    ? {
-                        ...run,
-                        index:
-                            run.index + delta
-                    }
-                    : run
-        );
-}
-
-function setCaretToOffset(
-    element,
-    offset
-) {
-
-    const selection =
-        window.getSelection();
-
-    if (!selection) {
-        return;
-    }
-
-    const range =
-        document.createRange();
-
-    const walker =
-        document.createTreeWalker(
-            element,
-            NodeFilter.SHOW_TEXT
-        );
-
-    let currentNode =
-        walker.nextNode();
-    let remaining =
-        offset;
-
-    while (
-        currentNode
-    ) {
-
-        const nodeLength =
-            currentNode.textContent.length;
-
-        if (
-            remaining <=
-            nodeLength
-        ) {
-            range.setStart(
-                currentNode,
-                remaining
-            );
-            range.collapse(
-                true
-            );
-            selection.removeAllRanges();
-            selection.addRange(
-                range
-            );
-            return;
-        }
-
-        remaining -=
-            nodeLength;
-        currentNode =
-            walker.nextNode();
-    }
-
-    range.selectNodeContents(
-        element
-    );
-    range.collapse(
-        false
-    );
-
-    selection.removeAllRanges();
-    selection.addRange(
-        range
-    );
-}
-
-function getCaretOffset(
-    element
-) {
-
-    const selection =
-        window.getSelection();
-
-    if (
-        !selection ||
-        !selection.rangeCount
-    ) {
-        return 0;
-    }
-
-    const range =
-        selection.getRangeAt(
-            0
-        );
-
-    const preRange =
-        range.cloneRange();
-
-    preRange.selectNodeContents(
-        element
-    );
-    preRange.setEnd(
-        range.startContainer,
-        range.startOffset
-    );
-
-    return preRange
-        .toString()
-        .length;
-}
-
-function getStyleRunsForText(
-    text
-) {
-
-    const sortedRuns =
-        [...styleRuns]
-            .sort(
-                (left, right) =>
-                    left.index - right.index
-            );
-
-    const runs =
-        [];
-
-    for (
-        let index = 0;
-        index < sortedRuns.length;
-        index += 1
-    ) {
-
-        const current =
-            sortedRuns[index];
-
-        const next =
-            sortedRuns[
-                index + 1
-            ];
-
-        runs.push(
-            {
-                start:
-                    current.index,
-                end:
-                    next
-                        ? next.index
-                        : text.length,
-                style:
-                    current.style
-            }
-        );
-    }
-
-    return runs;
-}
-
 function renderStyledPreview(
     text
 ) {
-
     const runs =
-        getStyleRunsForText(
-            text
-        );
+        getSortedStyleRuns();
 
     if (
         runs.length === 0
@@ -344,13 +651,21 @@ function renderStyledPreview(
         "";
 
     for (
-        let run of runs
+        let index = 0;
+        index < runs.length;
+        index += 1
     ) {
+        const current =
+            runs[index];
+        const next =
+            runs[index + 1];
 
         const segment =
             text.slice(
-                run.start,
-                run.end
+                current.index,
+                next
+                    ? next.index
+                    : text.length
             );
 
         const rendered =
@@ -361,31 +676,29 @@ function renderStyledPreview(
         const styleParts =
             [];
 
-        if (run.style.bold) {
+        if (current.style.bold) {
             styleParts.push(
                 "font-weight: bold"
             );
         }
 
-        if (run.style.italic) {
+        if (current.style.italic) {
             styleParts.push(
                 "font-style: italic"
             );
         }
 
         if (
-            run.style.color &&
-            run.style.color !==
+            current.style.color &&
+            current.style.color !==
                 "black"
         ) {
             styleParts.push(
-                `color: ${run.style.color}`
+                `color: ${current.style.color}`
             );
         }
 
-        if (
-            styleParts.length
-        ) {
+        if (styleParts.length) {
             html +=
                 `<span style="${styleParts.join("; ")}">${rendered}</span>`;
         } else {
@@ -397,10 +710,29 @@ function renderStyledPreview(
     return html;
 }
 
-function applyCommandIfPresent(
+function updateEditorState(
     text
 ) {
+    editor.innerHTML =
+        renderStyledPreview(
+            text
+        );
 
+    const words =
+        text.trim()
+            ? text.trim().split(/\s+/).length
+            : 0;
+
+    wordCount.textContent =
+        `${words} words`;
+
+    currentText =
+        text;
+}
+
+function applyCommandsFromText(
+    text
+) {
     let sanitizedText =
         text;
 
@@ -410,7 +742,7 @@ function applyCommandIfPresent(
     let caretIndex =
         null;
 
-    let currentStyle =
+    let activeStyle =
         cloneStyle(
             currentTypingStyle
         );
@@ -423,15 +755,13 @@ function applyCommandIfPresent(
         );
 
     while (match) {
-
         const command =
             match[1].toLowerCase();
 
         const nextStyle =
             getCommandStyle(
-                command
-                ,
-                currentStyle
+                command,
+                activeStyle
             );
 
         if (!nextStyle) {
@@ -444,16 +774,16 @@ function applyCommandIfPresent(
 
         const commandStart =
             match.index;
-
         const commandLength =
             match[0].length;
 
         sanitizedText =
             `${sanitizedText.slice(0, commandStart)}${sanitizedText.slice(commandStart + commandLength)}`;
 
-        shiftStyleRunsAfterIndex(
+        deleteTextRange(
             commandStart,
-            -commandLength
+            commandStart +
+                commandLength
         );
 
         setTypingStyleAtIndex(
@@ -461,22 +791,22 @@ function applyCommandIfPresent(
             nextStyle
         );
 
-        currentStyle =
-            nextStyle;
-
         currentTypingStyle =
+            cloneStyle(
+                nextStyle
+            );
+
+        activeStyle =
             cloneStyle(
                 nextStyle
             );
 
         caretIndex =
             commandStart;
-
         commandHandled =
             true;
 
         commandPattern.lastIndex = 0;
-
         match =
             commandPattern.exec(
                 sanitizedText
@@ -491,209 +821,196 @@ function applyCommandIfPresent(
     };
 }
 
-function updateEditorState(
-    text
+function setStatus(
+    status
 ) {
-
-    const result =
-        renderStyledPreview(
-            text
-        );
-
-    editor.innerHTML =
-        result;
-
-    const words =
-        text.trim()
-            ? text
-                .trim()
-                .split(/\s+/)
-                .length
-            : 0;
-
-    wordCount.textContent =
-        `${words} words`;
+    statusDot.style.backgroundColor =
+        status === "saved"
+            ? "#039a03"
+            : status === "unsaved"
+                ? "#d9bc3b"
+                : "#e39528";
 }
 
-function moveCaretByRepeatLevel(
-    direction,
-    repeatLevel
-) {
+function updateToolbarState() {
+    colorSelect.value =
+        currentTypingStyle.color;
 
-    const selection =
-        window.getSelection();
+    boldButton.classList.toggle(
+        "is-active",
+        currentTypingStyle.bold
+    );
 
-    if (
-        !selection ||
-        !selection.rangeCount
-    ) {
-        return;
-    }
-
-    const action =
-        repeatLevel >= 3
-            ? "lineboundary"
-            : "word";
-
-    selection.modify(
-        "move",
-        direction,
-        action
+    italicButton.classList.toggle(
+        "is-active",
+        currentTypingStyle.italic
     );
 }
 
-const arrowKeyState =
-    {
-        ArrowLeft: {
-            count: 0,
-            timer: null
-        },
-        ArrowRight: {
-            count: 0,
-            timer: null
-        }
-    };
-
-editor.addEventListener(
-    "keydown",
-    (event) => {
-
-        if (
-            event.key !==
-                "ArrowLeft" &&
-            event.key !==
-                "ArrowRight" ||
-            event.altKey ||
-            event.ctrlKey ||
-            event.metaKey ||
-            event.shiftKey
-        ) {
-            return;
-        }
-
-        const state =
-            arrowKeyState[
-                event.key
-            ];
-
-        if (state.timer) {
-            clearTimeout(
-                state.timer
-            );
-        }
-
-        state.count =
-            event.repeat
-                ? state.count
-                : state.count + 1;
-
-        if (state.count === 1) {
-            state.timer =
-                setTimeout(
-                    () => {
-                        state.count = 0;
-                        state.timer = null;
-                    },
-                    350
-                );
-
-            return;
-        }
-
-        event.preventDefault();
-
-        moveCaretByRepeatLevel(
-            event.key ===
-                "ArrowRight"
-                ? "forward"
-                : "backward",
-            state.count
+function applyToolbarStyleChange(
+    nextStyle
+) {
+    const selectionOffsets =
+        savedSelection ||
+        getSelectionOffsets(
+            editor
         );
 
-        state.count =
-            Math.min(
-                state.count,
-                3
-            );
+    if (
+        selectionOffsets &&
+        selectionOffsets.start !==
+            selectionOffsets.end
+    ) {
+        applyStyleToRange(
+            selectionOffsets.start,
+            selectionOffsets.end,
+            nextStyle
+        );
+    }
 
-        state.timer =
-            setTimeout(
-                () => {
-                    state.count = 0;
-                    state.timer = null;
-                },
-                350
+    currentTypingStyle =
+        cloneStyle(
+            nextStyle
+        );
+
+    isNormalizingInput =
+        true;
+
+    updateEditorState(
+        currentText
+    );
+
+    if (selectionOffsets) {
+        restoreSelectionOffsets(
+            editor,
+            selectionOffsets
+        );
+    }
+
+    isNormalizingInput =
+        false;
+
+    editor.focus();
+    updateToolbarState();
+    setStatus(
+        "unsaved"
+    );
+}
+
+titleInput.addEventListener(
+    "focus",
+    () => {
+        if (titleInput.innerText.trim() === "Title") {
+            titleInput.innerText =
+                "";
+        }
+    }
+);
+
+titleInput.addEventListener(
+    "blur",
+    () => {
+        if (titleInput.innerText.trim() === "") {
+            titleInput.innerText =
+                "Title";
+        }
+    }
+);
+
+document.addEventListener(
+    "selectionchange",
+    () => {
+        savedSelection =
+            getSelectionOffsets(
+                editor
             );
     }
 );
 
-function setStatus(
-    status
-) {
-
-    statusDot
-        .style
-        .backgroundColor =
-        status ===
-        "saved"
-            ? "#039a03"
-            : status ===
-              "unsaved"
-            ? "#d9bc3b"
-            : "#e39528";
-}
-
-// REMOVE placeholder text on focus
-titleInput.addEventListener("focus", () => {
-    if (titleInput.innerText.trim() === "Title") {
-        titleInput.innerText = "";
-    }
-});
-
-// restore placeholder if empty on blur
-titleInput.addEventListener("blur", () => {
-    if (titleInput.innerText.trim() === "") {
-        titleInput.innerText = "Title";
-    }
-});
-
 editor.addEventListener(
     "input",
     () => {
-
         if (isNormalizingInput) {
             return;
         }
 
-        const caretOffset =
-            getCaretOffset(
+        const selectionOffsets =
+            getSelectionOffsets(
                 editor
             );
 
-        const text =
+        const previousText =
+            currentText;
+
+        const rawText =
             editor.innerText;
 
         const commandResult =
-            applyCommandIfPresent(
-                text
+            applyCommandsFromText(
+                rawText
             );
 
-        if (
-            commandResult.commandHandled
-        ) {
+        if (commandResult.commandHandled) {
+            currentText =
+                commandResult.text;
+
+            isNormalizingInput =
+                true;
+
+            updateEditorState(
+                commandResult.text
+            );
+
+            setCaretToOffset(
+                editor,
+                commandResult.caretIndex ??
+                    commandResult.text.length
+            );
+
+            isNormalizingInput =
+                false;
+
+            updateToolbarState();
+            setStatus(
+                "unsaved"
+            );
+            return;
+        }
+
+        const diff =
+            getTextDiff(
+                previousText,
+                rawText
+            );
+
+        if (diff.deletedText.length) {
+            deleteTextRange(
+                diff.start,
+                diff.start +
+                    diff.deletedText.length
+            );
+        }
+
+        if (diff.insertedText.length) {
+            insertTextRange(
+                diff.start,
+                diff.insertedText.length,
+                currentTypingStyle
+            );
         }
 
         isNormalizingInput =
             true;
 
         updateEditorState(
-            commandResult.text
+            rawText
         );
 
         setCaretToOffset(
             editor,
-            commandResult.caretIndex ??
-                caretOffset
+            selectionOffsets
+                ? selectionOffsets.end
+                : rawText.length
         );
 
         isNormalizingInput =
@@ -705,64 +1022,133 @@ editor.addEventListener(
     }
 );
 
-saveButton.addEventListener("click", async () => {
+function interceptToolbarButton(
+    event
+) {
+    event.preventDefault();
+}
 
-            await saveTextFile(
-                titleInput
-                    .innerText
-                    .trim(),
-                editor
-                    .textContent
-            );
+boldButton.addEventListener(
+    "mousedown",
+    interceptToolbarButton
+);
 
-            setStatus(
-                "saved"
-            );
-        }
-    );
+italicButton.addEventListener(
+    "mousedown",
+    interceptToolbarButton
+);
 
-loadButton
-    .addEventListener(
-        "click",
-        async () => {
+resetStyleButton.addEventListener(
+    "mousedown",
+    interceptToolbarButton
+);
 
-            const file =
-                await loadTextFile();
+colorSelect.addEventListener(
+    "change",
+    () => {
+        applyToolbarStyleChange(
+            {
+                ...currentTypingStyle,
+                color:
+                    colorSelect.value
+            }
+        );
+    }
+);
 
-            editor
-                .textContent =
-                file.text;
+boldButton.addEventListener(
+    "click",
+    () => {
+        applyToolbarStyleChange(
+            {
+                ...currentTypingStyle,
+                bold:
+                    !currentTypingStyle.bold
+            }
+        );
+    }
+);
 
-            styleRuns =
-                [
-                    {
-                        index: 0,
-                        style:
-                            {
-                                ...defaultTypingStyle
-                            }
-                    }
-                ];
+italicButton.addEventListener(
+    "click",
+    () => {
+        applyToolbarStyleChange(
+            {
+                ...currentTypingStyle,
+                italic:
+                    !currentTypingStyle.italic
+            }
+        );
+    }
+);
 
-            currentTypingStyle =
+resetStyleButton.addEventListener(
+    "click",
+    () => {
+        applyToolbarStyleChange(
+            {
+                ...defaultTypingStyle
+            }
+        );
+    }
+);
+
+saveButton.addEventListener(
+    "click",
+    async () => {
+        await saveTextFile(
+            titleInput.innerText.trim(),
+            editor.textContent
+        );
+
+        setStatus(
+            "saved"
+        );
+    }
+);
+
+loadButton.addEventListener(
+    "click",
+    async () => {
+        const file =
+            await loadTextFile();
+
+        editor.textContent =
+            file.text;
+
+        styleRuns =
+            [
                 {
-                    ...defaultTypingStyle
-                };
+                    index: 0,
+                    style:
+                        {
+                            ...defaultTypingStyle
+                        }
+                }
+            ];
 
-            titleInput
-                .innerText =
-                file.title;
+        currentTypingStyle =
+            {
+                ...defaultTypingStyle
+            };
 
-            updateEditorState(
-                file.text
-            );
+        titleInput.innerText =
+            file.title;
 
-            setStatus(
-                "saved"
-            );
-        }
-    );
+        updateEditorState(
+            file.text
+        );
+
+        updateToolbarState();
+
+        setStatus(
+            "saved"
+        );
+    }
+);
 
 updateEditorState(
     editor.innerText
 );
+
+updateToolbarState();

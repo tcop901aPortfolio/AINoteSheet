@@ -31,6 +31,12 @@ html, body {
   user-select: none;
 }
 
+#formattingControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 #titleInput {
   width: 40%;
   height: 80%;
@@ -53,6 +59,42 @@ html, body {
   display: flex;
   align-items: center;
   height: 100%;
+}
+
+#colorSelect {
+  height: 28px;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  background: #fff;
+  color: #333;
+  font: inherit;
+  padding: 0 6px;
+}
+
+.formatButton {
+  border: 1px solid #bbb;
+  background: #fff;
+  color: #333;
+  font: inherit;
+  font-size: 11px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.formatButton:hover,
+#colorSelect:hover {
+  background: #f6f6f6;
+}
+
+.formatButton:active {
+  background: #ececec;
+}
+
+.formatButton.is-active {
+  background: #d9d9d9;
+  border-color: #999;
 }
 
 #editor {
