@@ -5,7 +5,10 @@ import {
 
 import {
     saveTextFile,
-    loadTextFile
+    loadTextFile,
+    selectFolderHandle,
+    getStoredFolderHandle,
+    listFolderTextFiles
 } from "./fileManager.js";
 
 const editor =
@@ -31,6 +34,46 @@ const saveButton =
 const loadButton =
     document.getElementById(
         "loadButton"
+    );
+
+const startupOverlay =
+    document.getElementById(
+        "startupOverlay"
+    );
+
+const startupSelectFolderButton =
+    document.getElementById(
+        "startupSelectFolderButton"
+    );
+
+const fileBrowser =
+    document.getElementById(
+        "fileBrowser"
+    );
+
+const folderName =
+    document.getElementById(
+        "folderName"
+    );
+
+const fileList =
+    document.getElementById(
+        "fileList"
+    );
+
+const browserSelectFolderButton =
+    document.getElementById(
+        "browserSelectFolderButton"
+    );
+
+const refreshFilesButton =
+    document.getElementById(
+        "refreshFilesButton"
+    );
+
+const newFileButton =
+    document.getElementById(
+        "newFileButton"
     );
 
 const titleInput =
@@ -110,6 +153,12 @@ let savedSelection =
 
 let isNormalizingInput =
     false;
+
+let activeFileName =
+    "Untitled";
+
+let activeFolderFiles =
+    [];
 
 function cloneStyle(
     style
@@ -832,6 +881,393 @@ function setStatus(
                 : "#e39528";
 }
 
+function getCurrentDocumentData() {
+    return {
+        text: currentText,
+        styleRuns: getSortedStyleRuns().map(
+            (run) => ({
+                index: run.index,
+                style: cloneStyle(run.style)
+            })
+        ),
+        currentTypingStyle:
+            cloneStyle(
+                currentTypingStyle
+            )
+    };
+}
+
+function resetToBlankDocument() {
+    styleRuns = [
+        {
+            index: 0,
+            style: {
+                ...defaultTypingStyle
+            }
+        }
+    ];
+
+    currentTypingStyle =
+        {
+            ...defaultTypingStyle
+        };
+
+    currentText =
+        "";
+
+    activeFileName =
+        "Untitled";
+
+    titleInput.innerText =
+        activeFileName;
+
+    updateEditorState(
+        currentText
+    );
+
+    updateToolbarState();
+    setStatus(
+        "unsaved"
+    );
+}
+
+function applyLoadedDocument(
+    file
+) {
+    styleRuns =
+        Array.isArray(
+            file.styleRuns
+        ) && file.styleRuns.length
+            ? file.styleRuns.map(
+                (run) => ({
+                    index: run.index,
+                    style: cloneStyle(
+                        run.style
+                    )
+                })
+            )
+            : [
+                {
+                    index: 0,
+                    style: {
+                        ...defaultTypingStyle
+                    }
+                }
+            ];
+
+    currentTypingStyle =
+        file.currentTypingStyle &&
+        typeof file.currentTypingStyle === "object"
+            ? cloneStyle(
+                file.currentTypingStyle
+            )
+            : {
+                ...defaultTypingStyle
+            };
+
+    activeFileName =
+        file.title ||
+        "Untitled";
+
+    titleInput.innerText =
+        activeFileName;
+
+    updateEditorState(
+        file.text || ""
+    );
+
+    currentText =
+        file.text || "";
+
+    updateToolbarState();
+    setStatus(
+        "saved"
+    );
+}
+
+function showFolderStartup() {
+    document.body.classList.remove(
+        "has-browser"
+    );
+
+    fileBrowser.classList.add(
+        "hidden"
+    );
+
+    startupOverlay.classList.remove(
+        "hidden"
+    );
+
+    startupOverlay.setAttribute(
+        "aria-hidden",
+        "false"
+    );
+}
+
+function showFolderBrowser() {
+    document.body.classList.add(
+        "has-browser"
+    );
+
+    startupOverlay.classList.add(
+        "hidden"
+    );
+
+    startupOverlay.setAttribute(
+        "aria-hidden",
+        "true"
+    );
+
+    fileBrowser.classList.remove(
+        "hidden"
+    );
+}
+
+function hideFolderBrowser() {
+    document.body.classList.remove(
+        "has-browser"
+    );
+
+    fileBrowser.classList.add(
+        "hidden"
+    );
+
+    startupOverlay.classList.add(
+        "hidden"
+    );
+
+    startupOverlay.setAttribute(
+        "aria-hidden",
+        "true"
+    );
+}
+
+function renderFolderFiles(
+    files
+) {
+    fileList.innerHTML =
+        "";
+
+    if (!files.length) {
+        const emptyState =
+            document.createElement(
+                "div"
+            );
+
+        emptyState.className =
+            "fileListEmpty";
+        emptyState.textContent =
+            "No .txt files yet. Create one to start a new note in this folder.";
+
+        fileList.appendChild(
+            emptyState
+        );
+        return;
+    }
+
+    for (const file of files) {
+        const item =
+            document.createElement(
+                "button"
+            );
+
+        item.type =
+            "button";
+        item.className =
+            "fileItem";
+
+        if (
+            file.title ===
+            activeFileName
+        ) {
+            item.classList.add(
+                "is-active"
+            );
+        }
+
+        const name =
+            document.createElement(
+                "div"
+            );
+        name.className =
+            "fileItemName";
+        name.textContent =
+            file.title;
+
+        const meta =
+            document.createElement(
+                "div"
+            );
+        meta.className =
+            "fileItemMeta";
+        meta.textContent =
+            file.name;
+
+        item.appendChild(
+            name
+        );
+        item.appendChild(
+            meta
+        );
+
+        item.addEventListener(
+            "click",
+            async () => {
+                const fileData =
+                    await loadTextFile(
+                        file.handle
+                    );
+
+                applyLoadedDocument(
+                    fileData
+                );
+
+                activeFileName =
+                    fileData.title ||
+                    file.title;
+
+                hideFolderBrowser();
+
+                editor.focus();
+
+                await refreshFolderBrowser();
+            }
+        );
+
+        fileList.appendChild(
+            item
+        );
+    }
+}
+
+function normalizeFileTitle(
+    title
+) {
+    return title
+        .replace(/\.txt$/i, "")
+        .trim();
+}
+
+function resolveUniqueFileTitle(
+    title
+) {
+    const baseTitle =
+        normalizeFileTitle(
+            title
+        ) || "Untitled";
+
+    const existingTitles =
+        new Set(
+            activeFolderFiles.map(
+                (file) =>
+                    file.title.toLowerCase()
+            )
+        );
+
+    let candidate =
+        baseTitle;
+    let index =
+        2;
+
+    while (
+        existingTitles.has(
+            candidate.toLowerCase()
+        )
+    ) {
+        candidate =
+            `${baseTitle} ${index}`;
+        index += 1;
+    }
+
+    return candidate;
+}
+
+async function refreshFolderBrowser() {
+    activeFolderFiles =
+        await listFolderTextFiles();
+
+    const folderHandle =
+        await getStoredFolderHandle();
+
+    folderName.textContent =
+        folderHandle?.name ||
+        "No folder selected";
+
+    renderFolderFiles(
+        activeFolderFiles
+    );
+}
+
+async function openFolderBrowser() {
+    const folderHandle =
+        await getStoredFolderHandle();
+
+    if (!folderHandle) {
+        showFolderStartup();
+        return;
+    }
+
+    showFolderBrowser();
+    await refreshFolderBrowser();
+}
+
+async function chooseFolderAndOpenBrowser() {
+    await selectFolderHandle();
+    await openFolderBrowser();
+}
+
+async function createNewFileInFolder() {
+    const requestedTitle =
+        window.prompt(
+            "New file name",
+            "Untitled"
+        );
+
+    if (requestedTitle === null) {
+        return;
+    }
+
+    const nextTitle =
+        resolveUniqueFileTitle(
+            requestedTitle
+        );
+
+    resetToBlankDocument();
+    titleInput.innerText =
+        nextTitle;
+    activeFileName =
+        nextTitle;
+
+    await saveTextFile(
+        nextTitle,
+        getCurrentDocumentData()
+    );
+
+    applyLoadedDocument(
+        {
+            text: "",
+            styleRuns: [
+                {
+                    index: 0,
+                    style: {
+                        ...defaultTypingStyle
+                    }
+                }
+            ],
+            currentTypingStyle: {
+                ...defaultTypingStyle
+            },
+            title: nextTitle
+        }
+    );
+
+    hideFolderBrowser();
+
+    editor.focus();
+
+    await refreshFolderBrowser();
+}
+
 function updateToolbarState() {
     colorSelect.value =
         currentTypingStyle.color;
@@ -1098,83 +1534,73 @@ saveButton.addEventListener(
     async () => {
         await saveTextFile(
             titleInput.innerText.trim(),
-            {
-                text: currentText,
-                styleRuns: getSortedStyleRuns().map(
-                    (run) => ({
-                        index: run.index,
-                        style: cloneStyle(run.style)
-                    })
-                ),
-                currentTypingStyle:
-                    cloneStyle(
-                        currentTypingStyle
-                    )
-            }
+            getCurrentDocumentData()
         );
+
+        activeFileName =
+            normalizeFileTitle(
+                titleInput.innerText.trim()
+            ) || "Untitled";
 
         setStatus(
             "saved"
         );
+
+        await refreshFolderBrowser();
     }
 );
 
 loadButton.addEventListener(
     "click",
     async () => {
-        const file =
-            await loadTextFile();
-
-        styleRuns =
-            Array.isArray(
-                file.styleRuns
-            ) && file.styleRuns.length
-                ? file.styleRuns.map(
-                    (run) => ({
-                        index: run.index,
-                        style: cloneStyle(run.style)
-                    })
-                )
-                : [
-                    {
-                        index: 0,
-                        style:
-                            {
-                                ...defaultTypingStyle
-                            }
-                    }
-                ];
-
-        currentTypingStyle =
-            file.currentTypingStyle &&
-            typeof file.currentTypingStyle === "object"
-                ? cloneStyle(
-                    file.currentTypingStyle
-                )
-                : {
-                    ...defaultTypingStyle
-                };
-
-        titleInput.innerText =
-            file.title;
-
-        updateEditorState(
-            file.text
-        );
-
-        currentText =
-            file.text;
-
-        updateToolbarState();
-
-        setStatus(
-            "saved"
-        );
+        await openFolderBrowser();
     }
 );
+
+startupSelectFolderButton.addEventListener(
+    "click",
+    async () => {
+        await chooseFolderAndOpenBrowser();
+    }
+);
+
+browserSelectFolderButton.addEventListener(
+    "click",
+    async () => {
+        await chooseFolderAndOpenBrowser();
+    }
+);
+
+refreshFilesButton.addEventListener(
+    "click",
+    async () => {
+        await refreshFolderBrowser();
+    }
+);
+
+newFileButton.addEventListener(
+    "click",
+    async () => {
+        await createNewFileInFolder();
+    }
+);
+
+async function bootstrapFolderBrowser() {
+    const folderHandle =
+        await getStoredFolderHandle();
+
+    if (!folderHandle) {
+        showFolderStartup();
+        return;
+    }
+
+    showFolderBrowser();
+    await refreshFolderBrowser();
+}
 
 updateEditorState(
     editor.innerText
 );
 
 updateToolbarState();
+bootstrapFolderBrowser();

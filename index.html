@@ -48,6 +48,33 @@
         </div>
     </div>
 
+    <div id="startupOverlay" class="overlay hidden" aria-hidden="true">
+        <div class="windowCard">
+            <div class="windowCardHeader">Choose a folder to start</div>
+            <p>
+                Pick the folder that holds your notes. The file browser will open right after you select it.
+            </p>
+            <button id="startupSelectFolderButton" class="primaryButton" type="button">Select Folder</button>
+        </div>
+    </div>
+
+    <aside id="fileBrowser" class="fileBrowser hidden" aria-label="Folder files">
+        <div class="fileBrowserHeader">
+            <div>
+                <div class="fileBrowserTitle">Files</div>
+                <div id="folderName" class="fileBrowserSubtitle">No folder selected</div>
+            </div>
+
+            <div class="fileBrowserActions">
+                <button id="browserSelectFolderButton" class="secondaryButton" type="button">Change Folder</button>
+                <button id="refreshFilesButton" class="secondaryButton" type="button">Refresh</button>
+                <button id="newFileButton" class="primaryButton" type="button">New File</button>
+            </div>
+        </div>
+
+        <div id="fileList" class="fileList" role="list"></div>
+    </aside>
+
     <div
         id="editor"
         contenteditable="true"
@@ -74,7 +101,7 @@
                 id="loadButton"
                 class="statusBarButton"
             >
-                Load
+                Files
             </button>
         </span>
 
