@@ -1174,6 +1174,7 @@ export function createStyleEditor(
     return {
         initialize,
         getCurrentDocumentData,
+        getCurrentText: () => currentText,
         resetToBlankDocument,
         applyLoadedDocument,
         setCurrentTitle,

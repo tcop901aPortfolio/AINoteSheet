@@ -45,6 +45,7 @@
             <button id="boldButton" class="formatButton" type="button">B</button>
             <button id="italicButton" class="formatButton" type="button">I</button>
             <button id="resetStyleButton" class="formatButton" type="button">Reset</button>
+            <button id="summaryButton" class="formatButton" type="button">Summarize</button>
         </div>
     </div>
 
@@ -111,6 +112,17 @@
     </div>
 
     <div id="tooltip"></div>
+
+    <div id="summaryOverlay" class="overlay hidden" aria-hidden="true">
+        <div class="windowCard summaryCard">
+            <div class="windowCardHeader" id="summaryTitle">AI Summary</div>
+            <div id="summaryBody" class="summaryBody"></div>
+            <div class="summaryActions">
+                <button id="summaryCopyButton" class="secondaryButton" type="button">Copy</button>
+                <button id="summaryCloseButton" class="primaryButton" type="button">Close</button>
+            </div>
+        </div>
+    </div>
 
     <script
         type="module"

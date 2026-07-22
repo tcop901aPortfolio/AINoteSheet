@@ -10,6 +10,10 @@ import {
     createFileBrowserController
 } from "./fileBrowser.js";
 
+import {
+    createSummaryController
+} from "./summary.js";
+
 const editor =
     document.getElementById(
         "editor"
@@ -100,6 +104,36 @@ const resetStyleButton =
         "resetStyleButton"
     );
 
+const summaryButton =
+    document.getElementById(
+        "summaryButton"
+    );
+
+const summaryOverlay =
+    document.getElementById(
+        "summaryOverlay"
+    );
+
+const summaryTitle =
+    document.getElementById(
+        "summaryTitle"
+    );
+
+const summaryBody =
+    document.getElementById(
+        "summaryBody"
+    );
+
+const summaryCloseButton =
+    document.getElementById(
+        "summaryCloseButton"
+    );
+
+const summaryCopyButton =
+    document.getElementById(
+        "summaryCopyButton"
+    );
+
 const styleEditor =
     createStyleEditor(
         {
@@ -130,8 +164,22 @@ const fileBrowserController =
         }
     );
 
+const summaryController =
+    createSummaryController(
+        {
+            summaryButton,
+            summaryOverlay,
+            summaryTitle,
+            summaryBody,
+            summaryCloseButton,
+            summaryCopyButton,
+            styleEditor
+        }
+    );
+
 styleEditor.initialize();
 fileBrowserController.initialize();
+summaryController.initialize();
 
 saveButton.addEventListener(
     "click",

@@ -171,6 +171,29 @@ body.has-browser #editor {
   margin-bottom: 16px;
 }
 
+.summaryCard {
+  width: min(540px, calc(100vw - 32px));
+}
+
+.summaryBody {
+  min-height: 160px;
+  padding: 14px;
+  border: 1px solid #e2d9cf;
+  border-radius: 14px;
+  background: #fbf8f4;
+  white-space: pre-wrap;
+  line-height: 1.6;
+  font-size: 13px;
+  color: #3d3329;
+}
+
+.summaryActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
 .fileBrowser {
   position: fixed;
   top: 62px;
