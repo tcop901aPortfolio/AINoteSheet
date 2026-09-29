@@ -24,8 +24,8 @@ async function requestSummaryFromOpenRouter(apiKey, text) {
                 {
                     role: "user",
                     content:
-                        "Summarize the following note clearly and concisely in 3-6 bullet points. Keep the wording simple and preserve important names, dates, numbers, and action items.\n\n" +
-                        text
+                        "You are a note summarizer. Return ONLY a bulleted list using • as the bullet character. No intro sentence, no outro, no markdown, no headers. Just the bullets. Each bullet should be one clear concise sentence preserving any names, dates, numbers, and action items.\n\nNote:\n" 
+                        + text
                 }
             ],
             max_tokens: 256,
